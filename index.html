@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<title>Biohacking Index Widget</title>
+
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Open+Sans:wght@300;400;600;700&display=swap');
+
+:root{
+--navy:#09092a;
+--orange:#ff9500;
+--blue:#4040e0;
+}
+
+body{
+background:#09092a;
+font-family:'Open Sans',sans-serif;
+display:flex;
+justify-content:center;
+padding:40px;
+}
+
+.widget{
+width:600px;
+background:rgba(255,255,255,.04);
+border:1px solid rgba(255,255,255,.1);
+border-radius:12px;
+overflow:hidden;
+color:white;
+box-shadow:0 20px 50px rgba(0,0,0,.5);
+}
+
+.topbar{
+display:flex;
+justify-content:space-between;
+padding:14px 18px;
+font-size:11px;
+letter-spacing:.15em;
+text-transform:uppercase;
+border-bottom:1px solid rgba(255,255,255,.08);
+}
+
+.live{
+color:#4dda96;
+font-weight:600;
+}
+
+.search{
+margin:12px;
+background:rgba(255,255,255,.08);
+padding:10px;
+border-radius:6px;
+}
+
+.search input{
+width:100%;
+background:none;
+border:none;
+outline:none;
+color:white;
+}
+
+.filters{
+display:flex;
+gap:6px;
+padding:0 12px 10px;
+}
+
+.chip{
+padding:4px 10px;
+border-radius:20px;
+border:1px solid rgba(255,255,255,.2);
+font-size:10px;
+cursor:pointer;
+}
+
+.chip.active{
+background:#4040e0;
+}
+
+.list{
+max-height:420px;
+overflow:auto;
+padding:0 10px;
+}
+
+.item{
+display:flex;
+align-items:center;
+gap:10px;
+padding:10px;
+border-radius:6px;
+cursor:pointer;
+}
+
+.item:hover{
+background:rgba(255,255,255,.07);
+}
+
+.rank-num{
+font-weight:bold;
+font-size:14px;
+color:#ff9500;
+min-width:32px;
+text-align:center;
+}
+
+.avatar{
+width:36px;
+height:36px;
+border-radius:8px;
+display:flex;
+align-items:center;
+justify-content:center;
+font-weight:bold;
+color:white;
+}
+
+.av1{background:linear-gradient(135deg,#1a1980,#4545e5)}
+.av2{background:linear-gradient(135deg,#0f5e3c,#1daa70)}
+.av3{background:linear-gradient(135deg,#5c1a80,#b040e0)}
+.av4{background:linear-gradient(135deg,#803000,#e05800)}
+.av5{background:linear-gradient(135deg,#1a5080,#2090e0)}
+
+.info{
+flex:1;
+}
+
+.name{
+font-weight:600;
+font-size:13px;
+}
+
+.cat{
+font-size:11px;
+color:rgba(255,255,255,.5);
+}
+
+.meta{
+text-align:right;
+}
+
+.badge{
+font-size:9px;
+padding:2px 8px;
+border-radius:12px;
+margin-bottom:3px;
+display:inline-block;
+}
+
+.featured{
+background:rgba(255,149,0,.15);
+color:#ff9500;
+}
+
+.verified{
+background:rgba(64,64,220,.2);
+color:#8f8fff;
+}
+
+.new{
+background:rgba(29,170,112,.2);
+color:#3dd98a;
+}
+
+.award{
+background:rgba(255,220,0,.2);
+color:#ffd700;
+}
+
+.stars{
+color:#ff9500;
+font-size:10px;
+}
+
+.resultbar{
+padding:6px 18px;
+font-size:10px;
+letter-spacing:.1em;
+color:rgba(255,255,255,.4);
+border-top:1px solid rgba(255,255,255,.05);
+}
+
+.footer{
+display:flex;
+justify-content:space-around;
+padding:14px;
+border-top:1px solid rgba(255,255,255,.08);
+font-size:11px;
+}
+
+.footer strong{
+display:block;
+font-family:'Merriweather',serif;
+font-size:18px;
+}
+
+</style>
+</head>
+
+
+<body>
+
+<div class="widget">
+
+<div class="topbar">
+<span>BIOHACKING INDEX — LIVE DIRECTORY</span>
+<span class="live">● LIVE</span>
+</div>
+
+<div class="search">
+<input id="search" placeholder="Search brands, providers, categories...">
+</div>
+
+<div class="filters">
+<span class="chip active" data-filter="all">ALL</span>
+<span class="chip" data-filter="supplements">SUPPLEMENTS</span>
+<span class="chip" data-filter="clinics">CLINICS</span>
+<span class="chip" data-filter="diagnostics">DIAGNOSTICS</span>
+<span class="chip" data-filter="coaches">COACHES</span>
+</div>
+
+<div class="list" id="list"></div>
+
+<div class="resultbar">
+10 LISTINGS • BIOHACKING INDEX
+</div>
+
+<div class="footer">
+<div><strong>500+</strong>Listings</div>
+<div><strong>High</strong>Intent Traffic</div>
+<div><strong>Verified</strong>Reviews Only</div>
+</div>
+
+</div>
+
+<script>
+
+// published CSV URL from Google "Publish to the web" feature
+const API_URL =
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vTfLuLhJvIgPe8E1xWq350IJNgyo8_sxWvk8LaoB0q7nNn86gx1ZoR08HnpAmBHzBIo8bx2NJYTQbPT/pub?gid=2089923393&single=true&output=csv';
+
+// helper to split CSV line respecting quoted commas
+function splitCsvLine(line) {
+  const result = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (ch === ',' && !inQuotes) {
+      result.push(cur);
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  result.push(cur);
+  return result;
+}
+
+const search = document.getElementById("search");
+const chips = document.querySelectorAll(".chip");
+let filter = "all";
+
+function updateResultCount() {
+  const total = document.querySelectorAll("#list .item").length;
+  document.querySelector(".resultbar").textContent = `${total} LISTINGS • BIOHACKING INDEX`;
+}
+
+function update() {
+  const q = search.value.toLowerCase();
+  const items = document.querySelectorAll(".item");
+  items.forEach(i => {
+    const tag = i.dataset.tag;
+    const text = i.innerText.toLowerCase();
+    const show = (filter === "all" || tag === filter) && text.includes(q);
+    i.style.display = show ? "flex" : "none";
+  });
+  updateResultCount();
+}
+
+search.addEventListener("input", update);
+
+chips.forEach(c => {
+  c.addEventListener("click", () => {
+    chips.forEach(x => x.classList.remove("active"));
+    c.classList.add("active");
+    filter = c.dataset.filter;
+    update();
+  });
+});
+
+async function fetchCompanies() {
+  console.log('fetching companies from', API_URL);
+  const res = await fetch(API_URL);
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('API request failed', res.status, text);
+    return [];
+  }
+  const text = await res.text();
+  if (!text) return [];
+  const lines = text.trim().split('\n');
+  const headers = splitCsvLine(lines.shift());
+  const rows = lines.map(line => {
+    const cells = splitCsvLine(line);
+    const obj = {};
+    headers.forEach((h, i) => {
+      obj[h] = cells[i] || "";
+    });
+    return obj;
+  });
+  return rows;
+}
+
+function rankCompanies(data) {
+  return data
+    .sort((a, b) => parseInt(b.Reviews || 0) - parseInt(a.Reviews || 0))
+    .slice(0, 10);
+}
+
+function renderCompanies(list) {
+  const container = document.getElementById("list");
+  container.innerHTML = "";
+  list.forEach((c, idx) => {
+    // ignore summary/total row or empty company
+    if (!c.Company || /total reviews/i.test(c.Company)) return;
+    const initials = c.Company
+      ? c.Company
+          .trim()
+          .split(/\s+/)
+          .map(w => w[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase()
+      : "";
+    const avClass = "av" + ((idx % 5) + 1);
+    const badgeType = c.Badge ? c.Badge.toLowerCase() : "";
+    const badgeClass = badgeType ? badgeType : "";
+    const badgeText = c.Badge ? c.Badge.toUpperCase() : "";
+    const rating = Math.round(parseFloat(c.Rating) || 0);
+    const stars = "★".repeat(rating);
+    const indexLink = c['Index Link '] || c['Index Link'] || "";
+    const nameHtml = indexLink 
+      ? `<a href="${indexLink}" target="_blank" style="color:inherit;text-decoration:none;font-weight:600;font-size:13px;cursor:pointer;">${c.Company || ""}</a>`
+      : `<div style="font-weight:600;font-size:13px;">${c.Company || ""}</div>`;
+    const item = document.createElement("div");
+    item.className = "item";
+    item.dataset.tag = (c.Category || "").toLowerCase();
+    item.innerHTML = `
+      <div class="rank-num">${idx+1}</div>
+      <div class="avatar ${avClass}">${initials}</div>
+      <div class="info">
+        <div class="name">${nameHtml}</div>
+        <div class="cat">${c.Description || ""}</div>
+      </div>
+      <div class="meta">
+        ${badgeType ? `<div class="badge ${badgeClass}">${badgeText}</div>` : ""}
+        <div class="stars">${stars}</div>
+      </div>`;
+    container.appendChild(item);
+  });
+  update();
+}
+
+async function loadAndRender() {
+  try {
+    const companies = await fetchCompanies();
+    const top = rankCompanies(companies);
+    renderCompanies(top);
+  } catch (e) {
+    console.error("Failed to load companies:", e);
+    updateResultCount();
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  updateResultCount(); // start with zero until data loads
+  loadAndRender();
+  // poll every 5 seconds for updates
+  setInterval(loadAndRender, 5_000);
+});
+
+</script>
+
+</body>
+</html>
